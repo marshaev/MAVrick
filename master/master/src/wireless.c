@@ -20,7 +20,10 @@ Conventions/notes:
 
 char rx_buff[RX_BUFF_SIZE];	//receive buffer for incoming packets
 char tx_buff[TX_BUFF_SIZE];	//transmit buffer for outgoing packets
-char tmp_buff[RX_MAX_SIZE]; //intermediate buffer between rx_postman and logistics
+char tmp_buff[RX_BUFF_SIZE]; //intermediate buffer between rx_postman and logistics
+uint16_t data_16[6];
+char eights[20];
+uint16_t sixteens[10];
 
 int diag;			//flag for extended telemetry stuff
 int rx_cur_loc;
@@ -31,14 +34,15 @@ int tx_end;
 uint16_t tx_buff_count;
 long RTC_last;		//Real-time clock 
 int usart_hit;
-int crap;
 
 //rx interrupt service routine
 __attribute__((__interrupt__)) static void wifi_usart_rx_isr(void)
 {
-	//(WI_USART)->csr;
 	rx_buff[rx_end] = WI_USART->rhr & 0xFF;
-	usart_write_char(WI_USART, rx_buff[rx_end]);
+	
+	//echo!!!!
+	//usart_write_char(WI_USART, rx_buff[rx_end]);
+	
 	rx_buff_count++;
 	rx_end++;
 	if(rx_end==RX_BUFF_SIZE) rx_end-=RX_BUFF_SIZE;
@@ -54,16 +58,11 @@ void wireless_init(void){
 	tx_end = 0;
 	tx_buff_count = 0;
 	RTC_last = 0;
-	crap = 10;
 	//Set up USART 1
 	static const gpio_map_t umap = {
 		{AVR32_USART1_RXD_0_0_PIN, AVR32_USART1_RXD_0_0_FUNCTION},
 		{AVR32_USART1_TXD_0_0_PIN, AVR32_USART1_TXD_0_0_FUNCTION}
 	};
-	/*static const gpio_map_t umap = {
-		{AVR32_USART3_RXD_0_2_PIN, AVR32_USART3_RXD_0_2_FUNCTION},
-		{AVR32_USART3_TXD_0_3_PIN, AVR32_USART3_TXD_0_3_FUNCTION}				
-	};*/
 	gpio_enable_module(umap, (sizeof(umap) / sizeof(umap[0])));
 	
 	usart_serial_options_t upot =  {
@@ -78,10 +77,7 @@ void wireless_init(void){
 	//register isr with interrupt controller
 	Disable_global_interrupt();
 	INTC_init_interrupts();
-	
 	INTC_register_interrupt(&wifi_usart_rx_isr, AVR32_USART1_IRQ, AVR32_INTC_INT0);
-	//INTC_register_interrupt(&wifi_usart_rx_isr, AVR32_USART3_IRQ, AVR32_INTC_INT0);
-	
 	Enable_global_interrupt();
 	
 	//enable interrupt RX interrupt
@@ -91,6 +87,7 @@ void wireless_init(void){
 //***************************************************************************
 //SETTING AND GETTING
 //***************************************************************************
+/*
 char * sixteen_to_eights(uint16_t *data, int size){
 	char * eights = malloc(sizeof(uint8_t)*(2*size));
 	for (int i = 0; i < 2*size; i += 2)
@@ -99,55 +96,96 @@ char * sixteen_to_eights(uint16_t *data, int size){
 		eights[i+1] = (char)(data[i/2] && 0xFF);
 	}
 	return eights;
-}
+}*/
 
-uint16_t * eights_to_sixteen(uint8_t *data, int size){
-	uint16_t * sixteens = malloc(sizeof(uint16_t)*(size/2));
+void eights_to_sixteen(uint8_t *data, int size){
+	//uint16_t * sixteens;// = malloc(sizeof(uint16_t)*(size/2));
 	for (int i = 0; i < size/2; i++)
 	{
-		sixteens[i] = (uint16_t)((data[2*i]<<8) + data[2*i + 1]);
+		sixteens[i] = ((uint16_t)(data[2*i]))<<8 | (uint16_t)(data[2*i + 1]);
 	}
-	return sixteens;
+	//return sixteens;
 }
 
+//an old set switch that does not switch
+/*
 void set_switch(char* command){
-	uint16_t * foo;
-	uint8_t bar[12];
+	uint16_t * ret_16;
+	uint8_t tmp_8[12];
 	for(int i=0;i<12;i++){
-		bar[i] = (uint8_t)command[i+2];
+		tmp_8[i] = (uint8_t)command[i+2];
 	}
-	foo = eights_to_sixteen(bar, 12);
-	set_kpid(foo);
-	free(foo);
+	ret_16 = eights_to_sixteen(tmp_8, 12);
+	set_kpid(ret_16);
+	free(ret_16);
+}*/
+
+
+void set_switch(char* command){
+	uint16_t * ret_16;
+	uint8_t tmp_8[20];
+	
+	switch (command[1])
+	{
+		case SET_KPD:
+
+			for(int i=0;i<20;i++){
+				tmp_8[i] = (uint8_t)command[i+2];
+			}
+			eights_to_sixteen(tmp_8, 20);
+			set_kpid(sixteens);
+			beta = ((float)(sixteens[10]))/100;
+			break;
+		case SET_TRIM:
+			set_trim(command);
+			break;
+		default: break;
+	}
+	return;
 }
 
 void get_switch(char * command){
-	uint16_t * data_16;
+	volatile uint16_t foo;
 	char * data_ch;
-	char * foo;
+	volatile char * ret_16;	
+	float * loc_pid;
 	switch (command[1])
 	{
 		case GET_KPD:
-			data_16 = malloc(sizeof(uint16_t)*3);
-			data_16[0] = (uint16_t)(100**get_kpid_data('p'));
-			data_16[1] = (uint16_t)(100**get_kpid_data('r'));
-			data_16[2] = (uint16_t)(100**get_kpid_data('y'));
-			foo = sixteen_to_eights(data_16, 3);
-			//tx_copy2buff(foo, 6);
-			free(data_16);
-			free(foo);
+			loc_pid = get_kpid_data('p');
+			data_16[0] = (uint16_t)(loc_pid[0]*100);
+			//data_16[1] = (uint16_t)(loc_pid->Kpid[1]*100);
+			data_16[1] = (uint16_t)(loc_pid[2]*100);
+			loc_pid = get_kpid_data('r');
+			data_16[2] = (uint16_t)(loc_pid[0]*100);
+			//data_16[4] = (uint16_t)(loc_pid->Kpid[1]*100);
+			data_16[3] = (uint16_t)(loc_pid[2]*100);
+			loc_pid = get_kpid_data('y');
+			data_16[4] = (uint16_t)(loc_pid[0]*100);
+			//data_16[7] = (uint16_t)(loc_pid->Kpid[1]*100);
+			data_16[5] = (uint16_t)(loc_pid[2]*100);
+			
+			for (int i = 0; i < 6; i++)
+			{
+				eights[2*i]   = (char)(data_16[i]>>8 & 0x00FF);//(data_16[i]>>8 && 0xFF);
+				eights[2*i+1] = (char)(data_16[i] & 0x00FF);
+			}
+			tx_copy2buff(GETTER, GET_KPD, eights, 12);
 			break;
 		case GET_IMU:
-			data_16 = malloc(sizeof(uint16_t)*3);
-			data_16[0] = (100*imu_get_for_wifi('p'));
-			data_16[1] = (100*imu_get_for_wifi('t'));
-			data_16[2] = (100*imu_get_for_wifi('h'));
-			//tx_copy2buff(sixteen_to_eights(data_16, 3), 6);
-			free(data_16);
+			data_16[0] = (int16_t)(100*imu_get_for_wifi('p'));
+			data_16[1] = (int16_t)(100*imu_get_for_wifi('r'));
+			data_16[2] = (int16_t)(100*imu_get_for_wifi('y'));
+			for (int i = 0; i < 3; i++)
+			{
+				eights[2*i]   = (char)(data_16[i]>>8 & 0x00FF);//(data_16[i]>>8 && 0xFF);
+				eights[2*i+1] = (char)(data_16[i] & 0x00FF);
+			}
+			tx_copy2buff(GETTER, GET_IMU, eights, 6);
 			break;
 		case GET_PID_OUT:
 			data_ch = get_PID_output();
-			//tx_copy2buff(data_ch, 4);
+			tx_copy2buff(GETTER, GET_PID_OUT, data_ch, 4);
 			break;
 		default:
 			break;
@@ -177,6 +215,8 @@ int rx_sortPacketSize(char rxbuff){
 		return SETTER_SIZE;
 	case GETTER:
 		return GETTER_SIZE;
+	case TRIM:
+		return TRIM_SIZE;
 	default:
 		return 0;
 	}
@@ -186,7 +226,7 @@ int rx_sortPacketSize(char rxbuff){
 //Polls USART status register for incoming bytes, assembles packets
 void rx_postman(void){	
 	//Packet Loss Watchdog
-	if(rtc_get_value(RTC) >= (RTC_last + 1000)) safetyStop(); //kill if longer than 1000ms since last packet rcvd
+	if(rtc_get_value(RTC) >= (RTC_last + 8000)) safetyStop(); //kill if longer than 1000ms since last packet rcvd
 	
 	//If usart read buffer has new byte, get it
 	if(rx_buff_count >= 1){
@@ -197,7 +237,6 @@ void rx_postman(void){
 		if(pkt_size==0){
 			rx_buff_count--;
 			rx_cur_loc++;
-			//usart_write_char(WI_USART, 'b');
 		}
 		
 		else if(rx_buff_count >= pkt_size){
@@ -211,141 +250,113 @@ void rx_postman(void){
 					tmp_buff[i] = rx_buff[loc];
 				}
 				
-				rx_logistics(tmp_buff);
+				rx_logistics();
 				RTC_last = rtc_get_value(RTC);
 				rx_cur_loc += pkt_size;
-				rx_buff_count -= pkt_size;
-				//usart_write_char(WI_USART, 'a');			
+				rx_buff_count -= pkt_size;		
 			}
 			else{
 				rx_buff_count--;
 				rx_cur_loc++;
-				//usart_write_char(WI_USART, 'b');
 			}
 		}
 		if(rx_cur_loc >= RX_BUFF_SIZE) rx_cur_loc -= RX_BUFF_SIZE;
 	}//if(usart_test_hit)
-	//delay_ms(10);
-	//usart_write_char(WI_USART,(char)(tx_buff_count));
 }//end rx_postman
 
 
 //Accepts command packet and orders appropriate action based on command byte. 
-void rx_logistics(char* command){
-	
-	//char bill[12] = "Hello world!";
-		
-	switch (command[0]){
+//void rx_logistics(char* command){
+void rx_logistics(void){
+	switch (tmp_buff[0]){
 	case VELOCITY_VECTOR:
-		vector(command);
+		//set_user_PID(&tmp_buff[0]);
+		set_user_PID(tmp_buff[1], tmp_buff[2], tmp_buff[3], tmp_buff[4]);
 		break;
 	case MANUAL:
-		manual(command);
+		manual(tmp_buff);
 		break;
 	case THROTTLE:
-		throttle(command);
+		throttle(tmp_buff);
 		break;
 	case TOGGLE_DIAGNOSTIC:
-		//tx_copy2buff(bill, 12);
-		//wireless_test();
-		diagnosticToggle(command);
+		diagnosticToggle(tmp_buff);
 		break;
 	case SETTER:
-		//set_switch(command);
+		set_switch(tmp_buff);
+		gpio_toggle_pin(LED2_GPIO);
 		break;
 	case GETTER:
-		get_switch(command);
+		get_switch(tmp_buff);
+		break;
+	case TRIM:
+		set_coll_trim(tmp_buff);
 		break;
 	default:
-		/*for (int i = 0; i < 3; i++)
-		{
-			bill[i] = command[i];
-		}*/
-		//tx_copy2buff(bill, 3);
 		break;
 	}//end switch
+	return;
 }//end rx_logistics
 
 //Send outgoing bytes when the tx register is empty
 void tx_postman(void){
-	/*if(crap > 0){
-		tx_buff_count = 0;
-		crap--;
-	}
-		gpio_toggle_pin(LED1_GPIO);
-	if(tx_buff_count== 0){
-		//usart_write_char(WI_USART,(char)(tx_buff_count));
-		gpio_toggle_pin(LED0_GPIO);	
-	}
-	else{	*/
-		char bull;
-		if(usart_tx_ready(WI_USART)){
-			switch (tx_buff_count){
-				case 0: break;
-			default: 
-				gpio_set_pin_low(LED2_GPIO);
-				//bull = tx_cur_loc;
-				WI_USART->thr = tx_buff[tx_cur_loc];  //&0x000F;
-				gpio_set_pin_high(LED2_GPIO);
-				//WI_USART->thr = bull;
-				
-				//tx_cur_loc++;
-				tx_buff_count=0;
-				break;
-				delay_ms(500);
-			}
-		}
-			delay_ms(10);
-			usart_write_char(WI_USART,(char)(rx_end));
-			delay_ms(10);
-			usart_write_char(WI_USART,(char)(rx_cur_loc));
-			delay_ms(10);
-			usart_write_char(WI_USART,(char)(rx_buff_count));
-			delay_ms(10);
-			usart_write_char(WI_USART,(char)(tx_buff_count));
-			delay_ms(10);
-			usart_write_char(WI_USART,(char)(tx_cur_loc));
-			delay_ms(10);
-			usart_write_char(WI_USART,(char)(tx_end));
-			delay_ms(10);
-			usart_write_char(WI_USART,'!');
-			delay_ms(500);
-			/*	
+	if(tx_buff_count > 0){
+		if (usart_write_char(WI_USART, tx_buff[tx_cur_loc]) == USART_SUCCESS)
 		{
-			
-			
-			/*delay_ms(10);
-			usart_write_char(WI_USART,(char)(tx_buff_count));
-			delay_ms(10);
-			usart_write_char(WI_USART,(char)(tx_cur_loc));
-			delay_ms(10);
-			usart_write_char(WI_USART,(char)(tx_end));
-			delay_ms(10);
-			usart_write_char(WI_USART,'!');
+			tx_cur_loc++;
+			tx_buff_count--;
 		}
-		
-	}
-		*/
-	if(tx_cur_loc>(2*TX_BUFF_SIZE) || tx_cur_loc < 0){
-		tx_cur_loc = 0;
 	}
 	if(tx_cur_loc>=TX_BUFF_SIZE){
 		tx_cur_loc -=TX_BUFF_SIZE;
 	}
-	
 }//end tx_postman
 
 
 //if the TX buffer is available, copy the input contents to the TX buffer and set size
 //Returns 1 if successful, 0 if buffer is in use.
-uint8_t tx_copy2buff(char * tx_data, int size){ //this is tx_pkt
-	if(tx_buff_count < (TX_BUFF_SIZE-size)){
+uint8_t tx_copy2buff(char h1, char h2 ,char * tx_data, int size){ //this is tx_pkt
+	//find size of headers
+	int offs = 0;
+	if (h1)
+	{
+		offs++;
+		if (h2) offs ++;
+	}
+	
+	//if headers and packet are fit into tx_buff add them
+	if(tx_buff_count < (TX_BUFF_SIZE-(size+offs+1)))
+	{
+		//loads header(s)
+		
+		if (h1)
+		{
+			tx_buff[tx_end] = h1;
+			tx_buff_count++;
+			tx_end++;
+			if(tx_end>=TX_BUFF_SIZE) tx_end-=TX_BUFF_SIZE;
+			if (h2)
+			{
+				tx_buff[tx_end] = h2;
+				tx_buff_count++;
+				tx_end++;
+				if(tx_end>=TX_BUFF_SIZE) tx_end-=TX_BUFF_SIZE;
+			}
+		}
+		
+		//loads packet tx_data into tx_buff
 		for(int i=0;i<size;i++){
 			tx_buff[tx_end] = tx_data[i];
 			tx_buff_count++;
 			tx_end++;
 			if(tx_end>=TX_BUFF_SIZE) tx_end-=TX_BUFF_SIZE;
 		}
+		
+		tx_buff[tx_end] = '\0';
+		tx_end++;
+		tx_buff_count++;
+		if(tx_end>=TX_BUFF_SIZE) tx_end-=TX_BUFF_SIZE;
+		
 		return 1;
 	}
 	return 0;
@@ -358,17 +369,9 @@ uint8_t tx_copy2buff(char * tx_data, int size){ //this is tx_pkt
 
 //zero the throttle and collective pitch in the event of signal loss
 void safetyStop(void){
-	//set_motor(0);
+	set_motor(0);
+	set_user_PID(127, 100, 50 ,50);
 }//end safetyStop
-
-
-//adjust PID inputs.
-void vector(char* velocityVector){
-	// imu_input->collective = velocityVector[1];
-	// imu_input->pitch = velocityVector[2];
-	// imu_input->roll = velocityVector[3];
-	// imu_input->yaw = velocityVector[4];
-}//end vector
 
 
 //manually adjust cyclic_x, cyclic_y, tail, and collective
@@ -391,14 +394,14 @@ void zeroAdjust(char * zeroVector){
 
 //Adjust throttle hold
 void throttle(char* throttleHold){
-//	global_vals->m_level = throttleHold[1];
+	set_motor(throttleHold[1]);
 }//end throttle
 
 
 //Turn on/off additional diagnostic information
 void diagnosticToggle(char* toggle){
 	char bill[40] = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLM";
-	tx_copy2buff(bill, 40);
+	tx_copy2buff(0, 0, bill, 40);
 	if(diag==0) diag=1;
 	else diag=0;
 }//end diagnosticToggel
@@ -406,7 +409,14 @@ void diagnosticToggle(char* toggle){
 
 //send information about the system: orientation
 void telemetry(void){
-
+	data_16[0] = (int16_t)(100*(imu_get_for_wifi('p') + 180));
+	data_16[1] = (int16_t)(100*(imu_get_for_wifi('r') + 180));
+	for (int i = 0; i < 2; i++)
+	{
+		eights[2*i]   = (char)(data_16[i]>>8 & 0x00FF);//(data_16[i]>>8 && 0xFF);
+		eights[2*i+1] = (char)(data_16[i] & 0x00FF);
+	}
+	tx_copy2buff(STANDARD_TELEMETRY, 0, eights, 4);
 }//end telemetry
 
 
@@ -425,7 +435,7 @@ void diagnostics(void){
 	data[5] = (char)(yaw_pid->Kpid[0]*10.0f);
 	data[6] = (char)get_servo_dat('m');
 	data[7] = TERM;
-	tx_copy2buff(data, 8);
+	tx_copy2buff(0, 0, data, 8);
 */
 }//end diagnostics
 
@@ -433,6 +443,6 @@ void diagnostics(void){
 //tests the wireless
 void wireless_test(void){
 	//transmit something encouraging
-	char * hello = "hi evan!";
-	//tx_copy2buff(&hello, sizeof(hello));
+	//char * hello = "hi evan!";
+	//tx_copy2buff(0, 0, &hello, sizeof(hello));
 }//end wireless_test

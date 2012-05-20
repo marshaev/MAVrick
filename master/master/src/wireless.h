@@ -18,10 +18,11 @@
 #define THROTTLE_SIZE 			3
 #define VELOCITY_ZERO_SIZE 		4
 #define TOGGLE_DIAGNOSTIC_SIZE 	3
-#define STANDARD_TELEMETRY_SIZE 1
+#define STANDARD_TELEMETRY_SIZE 5
 #define EXTENDED_TELEMETRY_SIZE 1
-#define SETTER_SIZE				15
+#define SETTER_SIZE				23
 #define GETTER_SIZE				3
+#define TRIM_SIZE				3
 
 #define RX_BUFF_SIZE 			50
 #define TX_BUFF_SIZE			50
@@ -38,9 +39,13 @@
 #define TOGGLE_DIAGNOSTIC		'd'
 #define STANDARD_TELEMETRY	 	'l'
 #define EXTENDED_TELEMETRY		'e'
+#define TRIM					'r'
 #define TERM					'\0' //null terminator
 
+//Setter Headers
 #define SET_KPD					1	//KPD pitch roll yaw
+#define SET_TRIM				2	//Set collective trim (may one day be more complex)
+#define SET_BETA				3	//Set AHRS IMU Gain
 
 //Getter Headers
 #define GET_KPD					128	//KPD pitch roll yaw
@@ -51,7 +56,9 @@
 #include "asf.h"
 #include "PID.h"
 #include "imu.h"
+#include "pwm.h"
 #include <usart.h>
+#include "MadgwickAHRS.h"
 
 //sets the memory locations of needed structs
 void wireless_init(void);
@@ -66,16 +73,16 @@ int rx_sortPacketSize(char rxbuff);
 void rx_postman(void);
 
 //Accepts command packet and orders appropriate action based on command byte. 
-void rx_logistics(char* command);
+void rx_logistics(void);
 
 //Send outgoing bytes when the tx register is empty
 void tx_postman(void);
 
-uint8_t tx_copy2buff(char * tx_data, int size); //this is tx_pkt
+uint8_t tx_copy2buff(char h1, char h2 ,char * tx_data, int size); //this is tx_pkt
 
-char * sixteen_to_eights(uint16_t *data, int size);
+//char * sixteen_to_eights(uint16_t *data, int size);
 
-uint16_t * eights_to_sixteen(uint8_t *data, int size);
+void eights_to_sixteen(uint8_t *data, int size);
 
 void set_switch(char* command);
 

@@ -27,11 +27,11 @@ Ranges of inputs:
 */
 
 #define A_BASE	7125
-#define	B_BASE	6850
+#define	B_BASE	6700
 #define C_BASE	7125
 #define R_BASE  6550
 #define M_BASE	7125
-#define R_MAX	175
+#define R_MAX	200
 #define O_MAX	300
 #define RC_VAL  7500
 
@@ -56,6 +56,8 @@ extern void set_motor(char setting);
 
 extern int get_servo_dat(char servo);
 
-extern void set_PWM_dat(char* PWM_dat);
+extern void check_max_values(void);
+
+extern void set_PWM_dat(int16_t* PWM_dat, char where);
 
 #endif 

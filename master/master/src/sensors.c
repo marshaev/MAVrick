@@ -10,6 +10,7 @@
 #include <MadgwickAHRS.h>
 #include <stdio.h>
 #include <math.h>
+#include "sensors.h"
 
 //General Vars
 struct spi_device gyro_spi_dev, accl_spi_dev;
@@ -26,7 +27,7 @@ long RTClst = 0;
 float raw[6][3];
 int got_dat[6], got_all;
 //zero data gyro
-float zerog[3] = {0,0,0};
+volatile float zerog[3] = {0,0,0};
 //output
 float a[3], b[3];
 int Acal = 0;
@@ -37,7 +38,7 @@ void init_imu_accl(volatile avr32_spi_t *spi){
 	//Register configuration for Accl
 	uint8_t wb[] = {
 		0b01101100,		//write, multibyte
-		0b00001100,		//0x2C datarate; 1010 100hz, 1011 200hz, 1100 400hz
+		0b00001110,		//0x2C datarate; 1010 100hz, 1011 200hz, 1100 400hz
 		0b00001000,		//0x2D set to measure
 		0b10000000,		//0x2E drdy int enable
 		0b01111111,		//0x2F drdy to int 1 else to int 2 pin
@@ -55,7 +56,7 @@ void init_imu_gyro(volatile avr32_spi_t *spi){
 		//Register configuration for Gyro
 	uint8_t wb[] = {
 		0b01100000,		//readNOTwrite, multibyte, 0x20 register
-		0b10111111,		//0x20 datarate; 0001 100hz, 0111 200hz, 1011 400hz
+		0b11111111,		//0x20 datarate; 0001 100hz, 0111 200hz, 1011 400hz
 		0b00000000,		//0x21 nc
 		0b00001000,		//0x22 drdy interrupt
 		0b00000000,		//0x23 no change for 250dps range
@@ -97,6 +98,8 @@ void init_sensors(void)
 	init_imu_spi(&AVR32_SPI1);
 	init_imu_accl(&AVR32_SPI1);
 	init_imu_gyro(&AVR32_SPI1);
+	delay_ms(20);
+	zero_gyro();
 }
 
 void get_dat_accl (volatile avr32_spi_t *spi)
@@ -284,9 +287,8 @@ void zero_accl(void)
 void zero_gyro(void)
 {
 	uint8_t samp = 0;
-	float zerog[3] = {0,0,0};
 	
-	//gpio_set_pin_low(LED2_GPIO);
+	gpio_set_pin_low(LED2_GPIO);
 	delay_ms(2000);
 	
 	RTClst = rtc_get_value(&AVR32_RTC);
@@ -296,7 +298,7 @@ void zero_gyro(void)
 		//Get current time
 		RTCn = rtc_get_value(&AVR32_RTC);
 		
-		//If current time is 5ms from the last time service things
+		//If current time is 2.5ms from the last time service things
 		if(RTCn >= (RTClst + 5))
 		{
 			RTClst = RTCn;
@@ -305,7 +307,7 @@ void zero_gyro(void)
 			
 			for (int i=0; i<3; i++)
 			{
-				zerog[i] += axyz[i];
+				zerog[i] += rxyz[i];
 			}
 			
 			samp++;
@@ -316,5 +318,5 @@ void zero_gyro(void)
 	{
 		zerog[i] = zerog[i]/SAMPLES;
 	}
-	//gpio_set_pin_high(LED2_GPIO);
+	gpio_set_pin_high(LED2_GPIO);
 }

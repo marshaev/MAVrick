@@ -20,6 +20,7 @@ long RTCnow = 0;
 long RTC_last_IMU = 0;
 long RTC_last_PWM = 0;
 long RTC_last_PID = 0;
+long RTC_last_TEL = 0;
 
 #define RTC &AVR32_RTC
 
@@ -37,7 +38,7 @@ void init_xplained (void)
 	
 	wireless_init();
 	
-	rtc_init(&AVR32_RTC, RTC_OSC_32KHZ, 3);
+	rtc_init(&AVR32_RTC, RTC_OSC_32KHZ, 1);//8khz
 	rtc_enable(&AVR32_RTC);
 	PWM_timer_init();
 	PID_init();
@@ -47,6 +48,7 @@ void init_xplained (void)
 }
 
 int main (void)
+
 {
 	/*
 	zero = 7300;
@@ -55,23 +57,11 @@ int main (void)
 	*/
 	init_xplained();
 	
-	/*int two_splats = 0;
-	
-	while(two_splats < 2)
-	{
-		if (usart_test_hit(WI_USART))
-		{
-			if ((WI_USART->rhr & 0xFF) == '*')
-			{
-				two_splats++;
-			}
-		}
-	}*/
-	
 	RTC_last_IMU = rtc_get_value(&AVR32_RTC);
-	RTC_last_PWM = rtc_get_value(&AVR32_RTC);
-	RTC_last_PID = rtc_get_value(&AVR32_RTC);
-	
+	RTC_last_PWM = RTC_last_IMU;
+	RTC_last_PID = RTC_last_IMU;
+	RTC_last_TEL = RTC_last_IMU;
+
 	while(1){
 			
 		rx_postman();	
@@ -86,33 +76,19 @@ int main (void)
 		}
 		
 		RTCnow = rtc_get_value(&AVR32_RTC);
-		if(RTCnow >= (RTC_last_PID + 5)){
-			RTC_last_PID = RTCnow;
-			//PID_sequence();
+		//every 20ms update
+		if(RTCnow >= (RTC_last_PWM + 400)){
+			RTC_last_PWM = RTCnow;
+			PID_sequence();
+			PWM_update();
 		}
 		
 		RTCnow = rtc_get_value(&AVR32_RTC);
-		//every 20ms update
-		if(RTCnow >= (RTC_last_PWM + 40)){
-			RTC_last_PWM = RTCnow;
-			PWM_update();
+		//every 250ms update
+		if(RTCnow >= (RTC_last_TEL + 2000)){
+			RTC_last_TEL = RTCnow;
+			telemetry();
 		}
+	}	
 
-		//PWM_tester(&current,'e',10); 
-		//pid_sequence();
-		//if(current.yaw==current.r)LED_Toggle(LED2);
-		//PWM_update();
-		
-		//PWM_tester('e',100);
-		/*
-		if(global_vals.pid_en==1){
-			pid_sequence();
-		}
-		*/
-
-		//delay needed to allow motor to go through startup checks
-		//delay_ms(5000);
-		//set_motor(112);
-
-	}		
 }

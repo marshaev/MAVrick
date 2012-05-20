@@ -14,7 +14,8 @@ int t_r;
 
 void PWM_timer_init(void)
 {
-	collective = 0;
+	//MUST CHANGE BACK!!!!!
+	collective = 100;
 	yaw = 0;
 	pitch = 0;
 	roll = 0;
@@ -278,31 +279,32 @@ void PWM_timer_init(void)
 }
 
 void PWM_tester(char servo, int delay){	
+	int initial_delay = 2000;
 	if(servo=='a'){
 		for(int i=0;i<=O_MAX;i++){
 			tc_write_ra(&AVR32_TC1, 2, A_BASE-i);
-			if(i==0) delay_ms(3000);
+			if(i==0) delay_ms(initial_delay);
 			else delay_ms(delay);
 		}
 	}
 	else if(servo=='b'){
 		for(int i=0;i<=O_MAX;i++){
 			tc_write_rb(&AVR32_TC1, 0, B_BASE+i);
-			if(i==0) delay_ms(3000);
+			if(i==0) delay_ms(initial_delay);
 			else delay_ms(delay);
 		}
 	}
 	else if(servo=='c'){
 		for(int i=0;i<=O_MAX;i++){
 			tc_write_rb(&AVR32_TC0, 2, C_BASE-i);
-			if(i==0) delay_ms(3000);
+			if(i==0) delay_ms(initial_delay);
 			else delay_ms(delay);
 		}
 	}
 	else if(servo=='r'){
 		for(int i=0;i<=R_MAX;i++){
 			tc_write_rb(&AVR32_TC1, 1, R_BASE+i);
-			if(i==0) delay_ms(3000);
+			if(i==0) delay_ms(initial_delay);
 			else delay_ms(delay);
 		}
 	}
@@ -311,7 +313,7 @@ void PWM_tester(char servo, int delay){
 			tc_write_ra(&AVR32_TC1, 2, A_BASE-i);
 			tc_write_rb(&AVR32_TC1, 0, B_BASE+i);
 			tc_write_rb(&AVR32_TC0, 2, C_BASE-i);
-			if(i<R_MAX)	tc_write_rb(&AVR32_TC1, 1, R_BASE-i);
+			if(i<R_MAX)	tc_write_rb(&AVR32_TC1, 1, R_BASE+i);
 			
 			//tc_write_rb(&AVR32_TC0, 0, 255);
 			if(i==0) delay_ms(3000);
@@ -325,9 +327,10 @@ void PWM_update(void){
 	t_a = collective-pitch+roll;
 	t_b = collective-pitch-roll;
 	t_c = collective+pitch+pitch;
-	t_r = yaw;
+	t_r = yaw+100;
 	
 	//if(collective!=0 || yaw !=0 || pitch!=0 || roll !=0) gpio_toggle_pin(LED0_GPIO);
+	check_max_values();
 
 	tc_write_ra(&AVR32_TC1, 2, A_BASE-t_a);
 	tc_write_rb(&AVR32_TC1, 0, B_BASE+t_b);
@@ -400,7 +403,19 @@ int get_servo_dat(char servo){
 	}
 }
 
-void set_PWM_dat(char* PWM_dat){
+void check_max_values(void){
+	if(t_a>=300)   t_a = 300;
+	else if(t_a<0) t_a = 0;
+	if(t_b>=300)   t_b = 300;
+	else if(t_b<0) t_b = 0;
+	if(t_c>=300)   t_c = 300;
+	else if(t_c<0) t_c = 0;
+	if(t_r>=180)   t_r = 180;
+	else if(t_r<0) t_r = 0;
+}
+
+
+void set_PWM_dat(int16_t* PWM_dat, char where){
 	/*
 	[0] = packet type
 	[1] = collective
@@ -409,8 +424,18 @@ void set_PWM_dat(char* PWM_dat){
 	[4] = roll
 	*/
 	//gpio_toggle_pin(LED2_GPIO);
-	collective	= (int)PWM_dat[1];
-	yaw			= (int)(PWM_dat[2]);
-	pitch		= (int)PWM_dat[3];
-	roll		= (int)PWM_dat[4];
+	switch (where){
+		case 'm': 
+			collective	= (int8_t)PWM_dat[1];
+			yaw			= (int8_t)PWM_dat[2];
+			pitch		= (int8_t)PWM_dat[3];
+			roll		= (int8_t)PWM_dat[4];
+			break;
+		default:
+			collective	= PWM_dat[0];
+			yaw			= PWM_dat[1];
+			pitch		= PWM_dat[2];
+			roll		= PWM_dat[3];
+			break;
+	}
 }

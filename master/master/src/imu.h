@@ -17,7 +17,7 @@ void service_imu(void);
 
 float imu_get_for_pid(char axis);
 
-uint16_t imu_get_for_wifi(char val);
+float imu_get_for_wifi(char val);
 
 #include <math.h>
 

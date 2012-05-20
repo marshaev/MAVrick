@@ -11,7 +11,7 @@
 
 #include <asf.h>
 
-#define PID_STEP .0025
+#define PID_STEP 0.05
 
 typedef struct 
 {
@@ -22,9 +22,12 @@ typedef struct
 
 extern void PID_init(void);
 
-extern void set_user_PID(char* user_dat);
+//extern void set_user_PID(char* user_dat);
+extern void set_user_PID(char u_col, char u_yaw, char u_pit, char u_rol);
 
 extern void set_kpid(uint16_t* kpid_dat);
+
+extern void set_trim(char *data);
 
 extern void inc_pid_kp(void);
 
@@ -37,5 +40,7 @@ extern float* get_kpid_data(char pid);
 extern char* get_PID_output(void);
 
 extern void PID_en_flag(int on);
+
+extern void set_coll_trim(char * command);
 
 #endif /* PID_H_ */

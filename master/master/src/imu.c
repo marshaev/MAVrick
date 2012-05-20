@@ -20,30 +20,18 @@ int wrap = 0;
 
 float psi_old = 0;
 
-//veloc
-float vxyz[3] = {0,0,0};
 float phi, theta, psi;
+float vtheta;
 
 float rtd[3];
 
 void init_imu(void)
 {
-	init_sensors(&AVR32_SPI1);
-	delay_ms(100);
-	zero_gyro();
+	init_sensors();
 	phi = 0;
 	theta = 0;
 	psi = 0;
-	//zero_accl();
-	//kf_init(&kf);
-	//(1.0/400);
 }
-
-/*
-void reset_imu(void)
-{
-	//kf_init(&kf);
-}*/
 
 float atan2f(float y, float x)
 {
@@ -135,6 +123,9 @@ void velocity(void)
 
 void service_imu(void)
 {
+	//vertical axis (of helicopter) rotation velocity
+	vtheta = 180*rxyz[2]/3.14159265;
+	
 	//char print_buf[38];
 	//float head[3] = {0,0,1};
 	
@@ -186,22 +177,22 @@ void service_imu(void)
 float imu_get_for_pid(char axis)
 {
 	switch (axis){
-		case 'r': return theta;
 		case 'p': return phi;
-		case 'y': return psi;
+		case 'r': return -theta;
+		case 'y': return vtheta;
 		default : return 0;
 	}
 }
 
-uint16_t imu_get_for_wifi(char val)
-{	
+float imu_get_for_wifi(char val)
+{
 	switch (val){
-		//phi: yaw, rotation around axis
-		case 'p': return (uint16_t)(phi);
-		//theta: pitch 
-		case 't': return (uint16_t)(theta);
-		//psi: roll
-		case 'h': return (uint16_t)(psi);
+		//phi: pitch
+		case 'p': return phi;
+		//theta: roll
+		case 'r': return -theta;
+		//psi: yaw
+		case 'y': return psi;
 		default : return 0;
 	}
 }

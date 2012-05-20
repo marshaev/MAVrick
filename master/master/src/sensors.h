@@ -21,9 +21,9 @@
 #include <MadgwickAHRS.h>
 #include <stdio.h>
 
-extern float rxyz[3], axyz[3];
+extern volatile float rxyz[3], axyz[3];
 
-void init_sensors(volatile avr32_spi_t *spi);
+void init_sensors(void);
 
 void get_imu_data(volatile avr32_spi_t *spi);
 
