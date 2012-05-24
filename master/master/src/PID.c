@@ -16,6 +16,7 @@ pid_state* pitch_angle_pid;
 pid_state* roll_angle_pid;
 pid_state* yaw_angle_pid;
 
+
 char usr_coll;
 float usr_yaw;
 float usr_pit;
@@ -36,17 +37,26 @@ uint8_t colect_trim;
 void PID_init(void)
 {
 	pitch_angle_pid = malloc(sizeof(pid_state));
-	pitch_angle_pid->Kpid[0] = 4;
-	pitch_angle_pid->Kpid[1] = 0;
-	pitch_angle_pid->Kpid[2] = 0;
+	pitch_angle_pid->Kpid[0]  = 4;
+	pitch_angle_pid->Kpid[1]  = 0;
+	pitch_angle_pid->Kpid[2]  = 0;
+	pitch_angle_pid->int_acum = 0;
+	pitch_angle_pid->prev_err = 0;
+	pitch_angle_pid->int_ena  = 1;
 	roll_angle_pid  = malloc(sizeof(pid_state));
-	roll_angle_pid->Kpid[0] = 6;
-	roll_angle_pid->Kpid[1] = 0;
-	roll_angle_pid->Kpid[2] = 0;
+	roll_angle_pid->Kpid[0]  = 6;
+	roll_angle_pid->Kpid[1]  = 0;
+	roll_angle_pid->Kpid[2]  = 0;
+	roll_angle_pid->int_acum = 0;
+	roll_angle_pid->prev_err = 0;
+	roll_angle_pid->int_ena  = 1;
 	yaw_angle_pid   = malloc(sizeof(pid_state));
-	yaw_angle_pid->Kpid[0] = 1;
-	yaw_angle_pid->Kpid[1] = 0;
-	yaw_angle_pid->Kpid[2] = 0;
+	yaw_angle_pid->Kpid[0]  = 1;
+	yaw_angle_pid->Kpid[1]  = 0;
+	yaw_angle_pid->Kpid[2]  = 0;
+	yaw_angle_pid->int_acum = 0;
+	yaw_angle_pid->prev_err = 0;
+	yaw_angle_pid->int_ena  = 1;
 	en = 1;
 	usr_coll = 0;
 	usr_yaw = 0;
@@ -67,9 +77,9 @@ void set_user_PID(char u_col, char u_yaw, char u_pit, char u_rol){
 	int tmp1 = (int)u_yaw;
 	int tmp2 = (int)u_pit;
 	int tmp3 = (int)u_rol;
-	usr_yaw	 = ((float)(tmp1 - 100)) * (1.4);
-	usr_pit	 = ((float)(tmp2 - 50)) * (.65);
-	usr_roll = ((float)(tmp3 - 50)) * (.65);
+	usr_yaw	 = ((float)(tmp1 - 100)) * (1.8);
+	usr_pit	 = ((float)(tmp2 - 50)) * (.3);
+	usr_roll = ((float)(tmp3 - 50)) * (.3);
 	//usr_roll = (.65)*(((float)u_rol) - 50);
 }
 
@@ -109,6 +119,7 @@ void PID_sequence(void)
 		pid_output[3]	= (char)(PID_update(roll_angle_pid, usr_roll, imu_roll)+0.5f);*/
 		//gpio_toggle_pin(LED1_GPIO);
 		set_PWM_dat(pid_output, 'p');
+		
 	}		
 }
 
@@ -121,7 +132,7 @@ float PID_update(volatile pid_state *state, float measured, float setpoint)
 	volatile float output = (state->Kpid[0])*error;
 	
 	//I
-	state->int_acum = PID_STEP*avg_err + state->int_acum;
+	state->int_acum = (PID_STEP*avg_err*ena) + state->int_acum;
 	output += (state->Kpid[1])*state->int_acum;
 	
 	//D
