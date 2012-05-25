@@ -342,28 +342,6 @@ void set_motor(char setting){
 	int level = (int) setting;
 	if(level>100) level = 100;
 	level = (int)(level * 3.75f);
-	/*
-	switch(setting){
-	case 'a':
-		level = 0;
-		break;
-	case 'b':
-		level = 25;
-		break;
-	case 'c':
-		level = 50;
-		break;
-	case 'd':
-		level = 75;
-		break;
-	case 'e':
-		level = 100;
-		break;
-	default:
-		level = 0;
-		break;
-	}
-	*/
 	tc_write_rb(&AVR32_TC0, 0, M_BASE - level);
 	motor = level;
 }
@@ -404,16 +382,15 @@ int get_servo_dat(char servo){
 }
 
 void check_max_values(void){
-	if(t_a>=300)   t_a = 300;
+	if(t_a>=O_MAX)   t_a = O_MAX;
 	else if(t_a<0) t_a = 0;
-	if(t_b>=300)   t_b = 300;
+	if(t_b>=O_MAX)   t_b = O_MAX;
 	else if(t_b<0) t_b = 0;
-	if(t_c>=300)   t_c = 300;
+	if(t_c>=O_MAX)   t_c = O_MAX;
 	else if(t_c<0) t_c = 0;
-	if(t_r>=180)   t_r = 180;
+	if(t_r>=R_MAX)   t_r = R_MAX;
 	else if(t_r<0) t_r = 0;
 }
-
 
 void set_PWM_dat(int16_t* PWM_dat, char where){
 	/*
@@ -438,4 +415,14 @@ void set_PWM_dat(int16_t* PWM_dat, char where){
 			roll		= PWM_dat[3];
 			break;
 	}
+	check_orientation_values();
+}
+
+void check_orientation_values(void){
+	if(pitch>MAX_PITCH)       pitch = MAX_PITCH;
+	else if(pitch<-MAX_PITCH) pitch = -MAX_PITCH;
+	if(roll>MAX_ROLL)       roll = MAX_ROLL;
+	else if(roll<-MAX_ROLL) roll = -MAX_ROLL;
+	if(yaw>MAX_YAW)       yaw = MAX_YAW;
+	else if(yaw<-MAX_YAW) yaw = -MAX_YAW;
 }

@@ -37,26 +37,26 @@ uint8_t colect_trim;
 void PID_init(void)
 {
 	pitch_angle_pid = malloc(sizeof(pid_state));
-	pitch_angle_pid->Kpid[0]  = 4;
-	pitch_angle_pid->Kpid[1]  = 0;
+	pitch_angle_pid->Kpid[0]  = 3;
+	pitch_angle_pid->Kpid[1]  = 1.66666666666;
 	pitch_angle_pid->Kpid[2]  = 0;
 	pitch_angle_pid->int_acum = 0;
 	pitch_angle_pid->prev_err = 0;
-	pitch_angle_pid->int_ena  = 1;
+	pitch_angle_pid->int_prev = 0;
 	roll_angle_pid  = malloc(sizeof(pid_state));
-	roll_angle_pid->Kpid[0]  = 6;
-	roll_angle_pid->Kpid[1]  = 0;
+	roll_angle_pid->Kpid[0]  = 3;
+	roll_angle_pid->Kpid[1]  = 1.66666666666;
 	roll_angle_pid->Kpid[2]  = 0;
 	roll_angle_pid->int_acum = 0;
 	roll_angle_pid->prev_err = 0;
-	roll_angle_pid->int_ena  = 1;
+	roll_angle_pid->int_prev = 0;
 	yaw_angle_pid   = malloc(sizeof(pid_state));
-	yaw_angle_pid->Kpid[0]  = 1;
-	yaw_angle_pid->Kpid[1]  = 0;
+	yaw_angle_pid->Kpid[0]  = 3;
+	yaw_angle_pid->Kpid[1]  = 0.243;
 	yaw_angle_pid->Kpid[2]  = 0;
 	yaw_angle_pid->int_acum = 0;
 	yaw_angle_pid->prev_err = 0;
-	yaw_angle_pid->int_ena  = 1;
+	yaw_angle_pid->int_prev = 0;
 	en = 1;
 	usr_coll = 0;
 	usr_yaw = 0;
@@ -119,7 +119,16 @@ void PID_sequence(void)
 		pid_output[3]	= (char)(PID_update(roll_angle_pid, usr_roll, imu_roll)+0.5f);*/
 		//gpio_toggle_pin(LED1_GPIO);
 		set_PWM_dat(pid_output, 'p');
-		
+		//pid_output[0] = coll
+		//pid_output[1] = yaw
+		//pid_output[2] = pitch
+		//pid_output[3] = roll
+		int tmp_yaw   = get_servo_dat('y');
+		int tmp_pitch = get_servo_dat('p');
+		int tmp_roll  = get_servo_dat('l');
+		if(pid_output[1]!=tmp_yaw)   yaw_angle_pid->int_acum   = yaw_angle_pid->int_prev;
+		if(pid_output[2]!=tmp_pitch) pitch_angle_pid->int_acum = pitch_angle_pid->int_prev;
+		if(pid_output[3]!=tmp_roll)  roll_angle_pid->int_acum  = roll_angle_pid->int_prev;
 	}		
 }
 
@@ -132,7 +141,8 @@ float PID_update(volatile pid_state *state, float measured, float setpoint)
 	volatile float output = (state->Kpid[0])*error;
 	
 	//I
-	state->int_acum = (PID_STEP*avg_err*ena) + state->int_acum;
+	state->int_prev = state->int_acum;
+	state->int_acum = (PID_STEP*avg_err) + state->int_acum;
 	output += (state->Kpid[1])*state->int_acum;
 	
 	//D

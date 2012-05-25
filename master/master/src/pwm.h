@@ -26,14 +26,17 @@ Ranges of inputs:
 	Roll:		-35->35
 */
 
-#define A_BASE	7125
-#define	B_BASE	6700
-#define C_BASE	7125
-#define R_BASE  6550
-#define M_BASE	7125
-#define R_MAX	200
-#define O_MAX	300
-#define RC_VAL  7500
+#define A_BASE	  7125
+#define	B_BASE	  6700
+#define C_BASE	  7125
+#define R_BASE    6550
+#define M_BASE	  7125
+#define R_MAX	  200
+#define O_MAX	  300
+#define RC_VAL    7500
+#define MAX_PITCH 50
+#define MAX_ROLL  50
+#define MAX_YAW   87
 
 
 extern void PWM_timer_init(void);
@@ -57,6 +60,8 @@ extern void set_motor(char setting);
 extern int get_servo_dat(char servo);
 
 extern void check_max_values(void);
+
+extern void check_orientation_values(void);
 
 extern void set_PWM_dat(int16_t* PWM_dat, char where);
 

@@ -18,7 +18,7 @@ typedef struct
 	float Kpid[3];  //constants for PID equations
 	float int_acum; //integral accumulation of all error
 	float prev_err; //derivative change from the previous error
-	int	  int_ena;
+	float int_prev;
 } pid_state;
 
 extern void PID_init(void);
